@@ -116,7 +116,51 @@ GET https://api.yikeweiqi.com/usersgf/detail?id=<id>&type=<type>
 - 这是**棋谱库**，讲解谱会带 `C[]` 注解、`LB`/`TR` 标记和分支变化图。
   取谱时必须**原样透传**，只往根节点补缺失属性；解析成着手列表再重建会丢掉全部注解和分支。
 
-## 4. 新博对弈
+## 4. 星阵围棋 (19x19 / Golaxy)
+
+链接：`m.19x19.com/app/<theme>/<lang>/sgf/<id>`（如 `/app/dark/zh/sgf/91740612`）
+
+```
+POST https://api.19x19.com/api/engine/games/shared/<sgfId>
+Content-Type: application/json
+body {"username":""}                        -> {"code":"0","msg":"","data":{...}}
+```
+
+- 成功是 `code === "0"`（**字符串** `"0"`，不是数字）。
+- `data` 只有三个字段：`id` · `userCode` · `sgf`。
+- `sgf` 是完整 SGF，根节点带 `CA/FF/AP/SZ/RU/KM/HA/PL/GN/PB/PW`，
+  但**没有 `RE` 和 `DT`** —— 个人存档谱，`PB`/`PW` 常常是 `黑方`/`白方` 这种占位名。
+- `RU` 是小写全拼（`chinese`），不是弈客的 `cn`。
+- 走的是 **engineApi**（`/api/engine`），不是 `gameApi`。bundle 里
+  `apiList.gameData.url = "/games/shared/{sgfId}"`，而实际请求用的是
+  `this.request("engine", …)` —— 容易看错。
+- 必须 **POST**；GET 返回 `code=6003`。
+
+### 那个 AES 不用算
+
+前端会往 body 里塞一个 `encrypted` 字段：
+
+```js
+AESEncode(e) {                                   // CryptoJS
+  const key = Utf8.parse(this.assetsUrl);        // ASSETSURL = "https://assets.19x19.com" (24 字节 -> AES-192)
+  return AES.encrypt(Utf8.parse(e), key, { mode: ECB, padding: Pkcs7 }).toString();
+}
+```
+
+**但服务端完全不校验**（实测 2026-10-26）：`encrypted` 乱填、留空、整个字段不发、
+甚至 body 只有 `{}`，都照样返回完整棋谱。唯一有要求的是 HTTP 方法必须是 POST。
+
+所以本实现不做 AES。这省掉的不是一点工作量：
+
+- 浏览器的 **WebCrypto 不支持 ECB 模式**（只有 CBC/CTR/GCM/KW）
+- **Chrome 还不支持 AES-192 密钥**
+
+真要在浏览器里算，就得手写一份 AES-192 加上 ECB 分组——纯粹为了一个不被检查的字段。
+（单块数据有个取巧办法：ECB 单块 == 零 IV 的 CBC 单块，可以借 WebCrypto 的 CBC 实现；
+但 Chrome 的 AES-192 限制仍然绕不过。）
+如果哪天服务端开始校验，这段就得补上。
+
+## 5. 新博对弈
 
 链接：`weiqi.xinboduiyi.com/golive/index.html?gamekey=<key>&gametype=eye`
 
@@ -179,11 +223,25 @@ String.fromCharCode(code >= 73 ? code + 31 : code + 32)   // 'I'(73) 是分界
 | `game-server.yikeweiqi.com/game/info` | 204 | `*` | `Allow-Headers` 含 `Authorization` |
 | `api.yikeweiqi.com/v2/golive/dtl` | 204 | `*` | `Allow-Headers` 含 `*` |
 | `api.yikeweiqi.com/usersgf/detail` | 204 | `*` | 同上, 同一网关 |
+| `api.19x19.com/api/engine/games/shared/<id>` | 204 | `*` | 允许 POST 与 `Content-Type` |
 | `wss://live.xinboduiyi.com:40442/ws` | — | — | **WebSocket 不受 CORS 约束**；证书是 DigiCert 签的，`wss://` 在 HTTPS 页面下无混合内容问题 |
 
 所以一个 GitHub Pages 上的静态页面就能完成全部取谱，无需任何后端。
 
 ---
+
+## 一个反复出现的规律
+
+三个站点的客户端都做了签名或加密，但**服务端真正校验的只有一部分**：
+
+| 站点 | 客户端算的 | 服务端实际校验 |
+| --- | --- | --- |
+| 弈客 | `CheckSum`(SHA-1) + `accesstoken`(MD5) + version/platform/uuid/timestamp | **只有 `CheckSum`** |
+| 星阵 | `encrypted` = AES-192-ECB(sgfId) | **完全不校验** |
+| 新博 | 无 | 无 |
+
+先探一遍"哪些字段是真的"，往往能省掉大量实现（这两处分别省掉了在浏览器里
+手写 MD5 和手写 AES-ECB）。方法很简单：把字段逐个乱填或删掉，看返回有没有变。
 
 ## 未覆盖的
 

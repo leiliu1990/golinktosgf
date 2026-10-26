@@ -53,7 +53,7 @@ try {
 
   const summary = `${meta.black}${meta.blackRank ? " " + meta.blackRank : ""} vs `
     + `${meta.white}${meta.whiteRank ? " " + meta.whiteRank : ""} — `
-    + `${moves.length}手, ${meta.resultText || meta.result || "进行中"}`
+    + `${moves.length}手, ${meta.resultText || meta.result || "棋谱未记录结果"}`
     + `${meta.date ? ", " + meta.date.slice(0, 10) : ""}`;
   console.error(summary);
   if (meta.handsMismatch) {

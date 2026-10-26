@@ -111,6 +111,7 @@ footer a { color: var(--accent); }
       <li>弈客围棋 · 在线对弈（旧版路由）<br><code>home.yikeweiqi.com/mobile.html#/online-game/&lt;id&gt;</code></li>
       <li>弈客围棋 · 直播室<br><code>home.yikeweiqi.com/mobile.html#/golive/room/&lt;id&gt;/0/0</code></li>
       <li>弈客围棋 · 棋谱库<br><code>home.yikeweiqi.com/mobile.html#/sgf/detail?id=&lt;id&gt;&amp;type=0</code></li>
+      <li>星阵围棋<br><code>m.19x19.com/app/dark/zh/sgf/&lt;id&gt;</code></li>
       <li>新博对弈<br><code>weiqi.xinboduiyi.com/golive/index.html?gamekey=&lt;key&gt;</code></li>
     </ul>
   </div>
@@ -124,7 +125,7 @@ footer a { color: var(--accent); }
 <script type="module">
 // ?v= 用来破 GitHub Pages 的 max-age=600 缓存 —— 每次改 src 都要跟着改这里
 import { fetchGame, suggestFilename, NotFinishedError, VERSION, SOURCE_LABEL }
-  from "./src/golinktosgf.js?v=1.1.0";
+  from "./src/golinktosgf.js?v=1.2.0";
 
 const $ = (id) => document.getElementById(id);
 const msg = $("msg"), out = $("out");
@@ -138,7 +139,8 @@ function clear() { msg.className = "msg"; out.className = ""; }
 
 $("ver").textContent = " · v" + VERSION;
 const srcName = (m) => SOURCE_LABEL[`${m.source}:${m.kind}`] || m.source;
-const RULE_LABEL = { cn: "中国规则", jp: "日本规则", kr: "韩国规则", Chinese: "中国规则", Japanese: "日本规则" };
+const RULE_LABEL = { cn: "中国规则", jp: "日本规则", kr: "韩国规则",
+  chinese: "中国规则", japanese: "日本规则", korean: "韩国规则" };
 
 $("f").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -153,10 +155,12 @@ $("f").addEventListener("submit", async (e) => {
     const m = game.meta;
     $("mB").textContent = m.black + (m.blackRank ? "  " + m.blackRank : "");
     $("mW").textContent = m.white + (m.whiteRank ? "  " + m.whiteRank : "");
-    $("mR").textContent = (m.resultText || "") + (m.result ? `（${m.result}）` : "") || "—";
+    $("mR").textContent = m.resultText || m.result
+      ? (m.resultText || "") + (m.result ? `（${m.result}）` : "")
+      : "棋谱未记录结果";
     $("mN").textContent = game.moves.length + " 手"
       + (m.handsMismatch ? `（接口报 ${m.handsMismatch} 手）` : "");
-    const ru = RULE_LABEL[m.rule] || m.rule || "";
+    const ru = RULE_LABEL[String(m.rule).toLowerCase()] || m.rule || "";
     const km = m.komi === "" || m.komi == null ? "" : `贴 ${m.komi} 目`;
     $("mK").textContent = [ru, km, m.handicap ? `让 ${m.handicap} 子` : ""]
       .filter(Boolean).join(" · ") || "—";

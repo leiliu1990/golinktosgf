@@ -1,6 +1,6 @@
 {
   "name": "golinktosgf",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "把围棋直播/对局链接转成 SGF 棋谱 —— 零依赖, 浏览器与 Node 共用一份实现",
   "type": "module",
   "main": "src/golinktosgf.js",

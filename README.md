@@ -18,9 +18,11 @@ node bin/golinktosgf.mjs "https://home.yikeweiqi.com/mobile.html#/new-online-gam
 | 弈客围棋 · 在线对弈 | `home.yikeweiqi.com/mobile.html#/new-online-game/<id>`<br>`…#/online-game/<id>`（旧版路由） | HTTP + 匿名 JWT |
 | 弈客围棋 · 直播室 | `home.yikeweiqi.com/mobile.html#/golive/room/<id>/0/0` | HTTP + 签名头 |
 | 弈客围棋 · 棋谱库 | `home.yikeweiqi.com/mobile.html#/sgf/detail?id=<id>&type=<type>` | HTTP + 签名头 |
+| 星阵围棋 | `m.19x19.com/app/dark/zh/sgf/<id>` | HTTP POST |
 | 新博对弈 | `weiqi.xinboduiyi.com/golive/index.html?gamekey=<key>` | WebSocket (JSON) |
 
-也可以只填对局号（纯数字按弈客对局处理，其余按新博 gamekey）。
+也可以只填对局号（纯数字按弈客对局处理，其余按新博 gamekey）。星阵围棋必须给完整链接——
+它的 id 也是纯数字，没法和弈客的区分。
 
 **只导出已终局的对局。** 未终局会明确报错，不会给出半盘棋谱。
 

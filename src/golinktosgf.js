@@ -12,7 +12,7 @@
  */
 
 /** 构建版本 —— 页面会显示它, 用来确认浏览器加载的不是缓存里的旧版 */
-export const VERSION = "1.1.0";
+export const VERSION = "1.2.0";
 
 /* ────────────────────────── 签名 (弈客两个 HTTP 接口共用) ───────────────────────── */
 
@@ -52,6 +52,7 @@ const SOURCES = [
   { source: "yikeweiqi", kind: "golive", re: /yikeweiqi\.com\/.*#\/golive\/room\/(\d+)/i },
   { source: "yikeweiqi", kind: "game", re: /yikeweiqi\.com\/.*#\/(?:new-online-game|online-game)\/(\d+)/i },
   { source: "xinbo", kind: "live", re: /xinboduiyi\.com\/.*[?&]gamekey=([^&#\s]+)/i },
+  { source: "golaxy", kind: "sgf", re: /19x19\.com\/.*\/sgf\/(\d+)/i },
 ];
 
 /** 识别链接 -> {source, kind, id}; 认不出抛错 */
@@ -73,7 +74,8 @@ export function detect(url) {
   throw new Error(
     `无法识别的链接: ${u.slice(0, 80)}${u.length > 80 ? "…" : ""}\n` +
     "支持: 弈客围棋的在线对弈 (#/new-online-game/ 或 #/online-game/)、" +
-    "直播室 (#/golive/room/)、棋谱库 (#/sgf/detail?id=)，以及新博对弈 (?gamekey=)。"
+    "直播室 (#/golive/room/)、棋谱库 (#/sgf/detail?id=)；" +
+    "星阵围棋 (m.19x19.com/…/sgf/<id>)；新博对弈 (?gamekey=)。"
   );
 }
 
@@ -417,12 +419,59 @@ async function fetchXinbo(gameKey) {
   return { meta, moves, setup };
 }
 
+/* ─────────────────────────── 来源 5: 星阵围棋 (19x19) ──────────────────────── */
+
+/**
+ * POST {engineApi}/games/shared/<sgfId>
+ *
+ * 前端会往 body 里塞 encrypted = AES-192-ECB(sgfId, key="https://assets.19x19.com")，
+ * 但**服务端根本不校验**: 空 body `{}` 一样返回棋谱 (实测 2026-10-26)。
+ * 所以这里不做 AES —— 省掉一个麻烦: 浏览器的 WebCrypto 不支持 ECB 模式,
+ * 而且 Chrome 连 AES-192 都不支持, 真要算就得手写一份 AES。
+ * 若哪天服务端开始校验, 这里就得补上手写的 ECB 实现。
+ */
+async function fetchGolaxy(id) {
+  const res = await fetch(`https://api.19x19.com/api/engine/games/shared/${encodeURIComponent(id)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept-Language": "zh-cn" },
+    body: JSON.stringify({ username: "" }),
+  }).then((r) => r.json());
+  if (String(res?.code) !== "0" || !res?.data) {
+    throw new Error("取棋谱失败: code=" + (res?.code ?? "?") + (res?.msg ? " " + res.msg : ""));
+  }
+  const raw = res.data.sgf || "";
+  if (!raw) throw new Error(`棋谱 ${id} 没有内容`);
+
+  const ru = sgfProp(raw, "RU", "").toLowerCase();
+  const meta = {
+    source: "golaxy", kind: "sgf", id: String(res.data.id || id),
+    black: sgfProp(raw, "PB", "Black"), white: sgfProp(raw, "PW", "White"),
+    blackRank: sgfProp(raw, "BR", ""), whiteRank: sgfProp(raw, "WR", ""),
+    boardSize: Number(sgfProp(raw, "SZ", "19")) || 19,
+    komi: sgfProp(raw, "KM", ""),
+    rule: { chinese: "cn", japanese: "jp", korean: "kr" }[ru] || ru,
+    handicap: Number(sgfProp(raw, "HA", "0")) || 0,
+    date: sgfProp(raw, "DT", ""),
+    event: sgfProp(raw, "EV", "") || sgfProp(raw, "GN", ""),
+    result: sgfProp(raw, "RE", ""), resultText: "", endMode: "",
+    handsCount: 0, status: "ended", timeLimit: 0,
+    userCode: res.data.userCode || "",
+    gameName: `星阵围棋 #${res.data.id || id}`,
+    url: `https://m.19x19.com/app/dark/zh/sgf/${res.data.id || id}`,
+  };
+  // 完整 SGF, 原样透传 + 只补缺失的根属性
+  const sgf = patchSgfRoot(raw,
+    { GM: 1, FF: 4, CA: "UTF-8", SZ: meta.boardSize, GN: meta.gameName });
+  return { meta, sgf, moves: parseSgfMoves(raw) };
+}
+
 /* ──────────────────────────────── 统一入口 ──────────────────────────────────── */
 
 /** 链接 -> {sgf, meta, moves}; 任何一步失败都抛带中文说明的 Error */
 export async function fetchGame(url) {
   const t = detect(url);
-  const got = t.source === "xinbo" ? await fetchXinbo(t.id)
+  const got = t.source === "golaxy" ? await fetchGolaxy(t.id)
+            : t.source === "xinbo" ? await fetchXinbo(t.id)
             : t.kind === "sgf" ? await fetchYikeSgfDetail(t.id, t.type)
             : t.kind === "golive" ? await fetchYikeGolive(t.id)
             : await fetchYikeGame(t.id);
@@ -436,7 +485,7 @@ export async function fetchGame(url) {
 /** 建议的文件名, 如 "弈客围棋-80246918-黑方名-白方名.sgf" */
 export function suggestFilename(meta) {
   const label = { yikeweiqi: { golive: "弈客直播", sgf: "弈客棋谱", game: "弈客围棋" }[meta.kind] || "弈客围棋",
-                  xinbo: "新博对弈" }[meta.source] || meta.source;
+                  xinbo: "新博对弈", golaxy: "星阵围棋" }[meta.source] || meta.source;
   const safe = (s) => String(s || "").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 24);
   return `${label}-${safe(meta.id)}-${safe(meta.black)}-${safe(meta.white)}.sgf`;
 }
@@ -446,6 +495,7 @@ export const SOURCE_LABEL = {
   "yikeweiqi:golive": "弈客围棋 · 直播室",
   "yikeweiqi:sgf": "弈客围棋 · 棋谱库",
   "xinbo:live": "新博对弈",
+  "golaxy:sgf": "星阵围棋",
 };
 export const SUPPORTED = SOURCES.map(({ source, kind }) => ({
   source, kind, label: SOURCE_LABEL[`${source}:${kind}`] || `${source}:${kind}`,
