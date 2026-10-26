@@ -12,7 +12,7 @@
  */
 
 /** 构建版本 —— 页面会显示它, 用来确认浏览器加载的不是缓存里的旧版 */
-export const VERSION = "1.2.0";
+export const VERSION = "1.2.1";
 
 /* ────────────────────────── 签名 (弈客两个 HTTP 接口共用) ───────────────────────── */
 
@@ -68,9 +68,15 @@ export function detect(url) {
     }
     return hit;
   }
-  // 裸 id: 纯数字当弈客对局, 其余当新博 gamekey
-  if (/^\d{4,}$/.test(u)) return { source: "yikeweiqi", kind: "game", id: u };
+  // 裸 id 只接受新博那种非纯数字的 gamekey —— 纯数字在多平台下有歧义
+  // (弈客对局号 / 弈客棋谱号 / 星阵棋谱号都是纯数字), 必须给完整链接。
   if (/^[A-Za-z][A-Za-z0-9_-]{7,}$/.test(u)) return { source: "xinbo", kind: "live", id: u };
+  if (/^\d+$/.test(u)) {
+    throw new Error(
+      `只给对局号 "${u}" 无法确定平台 —— 弈客对局、弈客棋谱、星阵棋谱的编号都是纯数字。\n` +
+      "请粘贴完整链接。"
+    );
+  }
   throw new Error(
     `无法识别的链接: ${u.slice(0, 80)}${u.length > 80 ? "…" : ""}\n` +
     "支持: 弈客围棋的在线对弈 (#/new-online-game/ 或 #/online-game/)、" +

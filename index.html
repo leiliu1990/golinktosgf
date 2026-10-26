@@ -81,7 +81,8 @@ footer a { color: var(--accent); }
                placeholder="https://home.yikeweiqi.com/mobile.html#/new-online-game/80246918">
         <button id="go" type="submit">取棋谱</button>
       </div>
-      <p class="hint">也可以直接填对局号，例如 <code>80246918</code>。只支持<strong>已终局</strong>的对局。</p>
+      <p class="hint">请粘贴<strong>完整链接</strong>（各平台的编号都是纯数字，只给编号无法判断来源）。
+        对弈类链接只支持<strong>已终局</strong>的对局。</p>
     </form>
 
     <div id="msg" class="msg"></div>
@@ -125,7 +126,7 @@ footer a { color: var(--accent); }
 <script type="module">
 // ?v= 用来破 GitHub Pages 的 max-age=600 缓存 —— 每次改 src 都要跟着改这里
 import { fetchGame, suggestFilename, NotFinishedError, VERSION, SOURCE_LABEL }
-  from "./src/golinktosgf.js?v=1.2.0";
+  from "./src/golinktosgf.js?v=1.2.1";
 
 const $ = (id) => document.getElementById(id);
 const msg = $("msg"), out = $("out");

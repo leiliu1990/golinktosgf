@@ -21,8 +21,9 @@ node bin/golinktosgf.mjs "https://home.yikeweiqi.com/mobile.html#/new-online-gam
 | 星阵围棋 | `m.19x19.com/app/dark/zh/sgf/<id>` | HTTP POST |
 | 新博对弈 | `weiqi.xinboduiyi.com/golive/index.html?gamekey=<key>` | WebSocket (JSON) |
 
-也可以只填对局号（纯数字按弈客对局处理，其余按新博 gamekey）。星阵围棋必须给完整链接——
-它的 id 也是纯数字，没法和弈客的区分。
+**请给完整链接。** 各平台的编号都是纯数字（弈客对局号 / 弈客棋谱号 / 星阵棋谱号），
+只给编号无法判断来源，所以这种输入会直接报错而不是去猜。
+例外是新博的 `gamekey`（形如 `Local-…`，非纯数字），可以单独填。
 
 **只导出已终局的对局。** 未终局会明确报错，不会给出半盘棋谱。
 
@@ -73,7 +74,7 @@ GitHub Pages 对静态文件发 `Cache-Control: max-age=600`，浏览器会在 1
 复用旧的 JS。`index.html` 里的模块导入带了版本 query：
 
 ```js
-import { … } from "./src/golinktosgf.js?v=1.1.0";
+import { … } from "./src/golinktosgf.js?v=1.2.1";
 ```
 
 **改了 `src/golinktosgf.js` 就要同时改这里的 `?v=` 和 `src` 里的 `VERSION`**，
