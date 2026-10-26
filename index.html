@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>golinktosgf — 围棋对局链接转 SGF</title>
+<meta name="description" content="粘贴弈客围棋或新博对弈的对局链接, 直接导出 SGF 棋谱文件。纯前端, 不经过任何服务器。">
+<style>
+:root {
+  --bg: #F4F5F2; --card: #FFF; --ink: #23272A; --ink-2: #5B6268; --ink-3: #8D959B;
+  --line: #E3E6E2; --accent: #1F6F4A; --accent-ink: #FFF; --err-bg: #FBE9E5; --err: #A8402C;
+  --ok-bg: #E8F3EC; --ok: #1F6F4A;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181A; --card: #1E2225; --ink: #E7EAEC; --ink-2: #AEB5BA; --ink-3: #7D858B;
+    --line: #2E3438; --accent: #5FB98A; --accent-ink: #11261C; --err-bg: #33201C; --err: #E89078;
+    --ok-bg: #17291F; --ok: #5FB98A;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 680px; margin: 0 auto; padding: 32px 18px 56px; }
+h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: .01em; }
+.sub { color: var(--ink-2); font-size: 14px; margin: 0 0 22px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-2); margin-bottom: 7px; }
+.row { display: flex; gap: 8px; }
+input[type=url], input[type=text] {
+  flex: 1; min-width: 0; font: 14px var(--mono); color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 11px 12px;
+}
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button {
+  font: 600 14px var(--sans); color: var(--accent-ink); background: var(--accent);
+  border: 0; border-radius: 7px; padding: 11px 18px; cursor: pointer; white-space: nowrap;
+}
+button:hover { filter: brightness(1.08); }
+button:disabled { opacity: .55; cursor: default; }
+button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.hint { font-size: 12.5px; color: var(--ink-3); margin-top: 10px; }
+.hint code { font: 12px var(--mono); background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+.msg { margin-top: 16px; border-radius: 8px; padding: 12px 14px; font-size: 14px; display: none; }
+.msg.show { display: block; }
+.msg.err { background: var(--err-bg); color: var(--err); }
+.msg.ok { background: var(--ok-bg); color: var(--ok); }
+.msg.busy { background: var(--bg); color: var(--ink-2); border: 1px solid var(--line); }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin: 14px 0 0; font-size: 14px; }
+dt { color: var(--ink-3); font-size: 13px; }
+dd { margin: 0; font-variant-numeric: tabular-nums; }
+dd.mono { font-family: var(--mono); font-size: 13px; }
+#out { display: none; margin-top: 18px; }
+#out.show { display: block; }
+.acts { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+textarea {
+  width: 100%; height: 150px; margin-top: 14px; resize: vertical;
+  font: 12px/1.5 var(--mono); color: var(--ink-2); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 7px; padding: 10px;
+}
+.srcs { margin-top: 26px; font-size: 13.5px; color: var(--ink-2); }
+.srcs h2 { font-size: 14px; color: var(--ink); margin: 0 0 8px; }
+.srcs ul { margin: 0; padding-left: 20px; }
+.srcs li { margin-bottom: 4px; }
+.srcs code { font: 12px var(--mono); color: var(--ink-3); word-break: break-all; }
+footer { margin-top: 30px; font-size: 12.5px; color: var(--ink-3); }
+footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>golinktosgf</h1>
+  <p class="sub">粘贴对局链接，导出 SGF 棋谱。纯前端运行，链接和棋谱都不经过第三方服务器。</p>
+
+  <div class="card">
+    <form id="f">
+      <label for="u">对局链接</label>
+      <div class="row">
+        <input id="u" type="url" inputmode="url" spellcheck="false" required
+               placeholder="https://home.yikeweiqi.com/mobile.html#/new-online-game/80246918">
+        <button id="go" type="submit">取棋谱</button>
+      </div>
+      <p class="hint">也可以直接填对局号，例如 <code>80246918</code>。只支持<strong>已终局</strong>的对局。</p>
+    </form>
+
+    <div id="msg" class="msg"></div>
+
+    <div id="out">
+      <dl>
+        <dt>黑</dt><dd id="mB"></dd>
+        <dt>白</dt><dd id="mW"></dd>
+        <dt>结果</dt><dd id="mR"></dd>
+        <dt>手数</dt><dd id="mN"></dd>
+        <dt>规则</dt><dd id="mK"></dd>
+        <dt>赛事</dt><dd id="mE"></dd>
+        <dt>来源</dt><dd id="mS" class="mono"></dd>
+      </dl>
+      <div class="acts">
+        <button id="dl" type="button">下载 SGF</button>
+        <button id="cp" type="button" class="ghost">复制棋谱</button>
+      </div>
+      <textarea id="sgf" readonly spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <div class="srcs">
+    <h2>支持的链接</h2>
+    <ul>
+      <li>弈客围棋 · 在线对弈<br><code>home.yikeweiqi.com/mobile.html#/new-online-game/&lt;id&gt;</code></li>
+      <li>弈客围棋 · 在线对弈（旧版路由）<br><code>home.yikeweiqi.com/mobile.html#/online-game/&lt;id&gt;</code></li>
+      <li>弈客围棋 · 直播室<br><code>home.yikeweiqi.com/mobile.html#/golive/room/&lt;id&gt;/0/0</code></li>
+      <li>新博对弈<br><code>weiqi.xinboduiyi.com/golive/index.html?gamekey=&lt;key&gt;</code></li>
+    </ul>
+  </div>
+
+  <footer>
+    命令行版与协议文档见 <a href="https://github.com/leiliu1990/golinktosgf">GitHub 仓库</a>。
+  </footer>
+</div>
+
+<script type="module">
+import { fetchGame, suggestFilename, NotFinishedError } from "./src/golinktosgf.js";
+
+const $ = (id) => document.getElementById(id);
+const msg = $("msg"), out = $("out");
+let current = null;
+
+function say(kind, text) {
+  msg.className = "msg show " + kind;
+  msg.textContent = text;
+}
+function clear() { msg.className = "msg"; out.className = ""; }
+
+const SRC_LABEL = { yikeweiqi: "弈客围棋", xinbo: "新博对弈" };
+const RULE_LABEL = { cn: "中国规则", jp: "日本规则", kr: "韩国规则", Chinese: "中国规则", Japanese: "日本规则" };
+
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const url = $("u").value.trim();
+  if (!url) return;
+  clear();
+  $("go").disabled = true;
+  say("busy", "正在取棋谱…");
+  try {
+    const game = await fetchGame(url);
+    current = game;
+    const m = game.meta;
+    $("mB").textContent = m.black + (m.blackRank ? "  " + m.blackRank : "");
+    $("mW").textContent = m.white + (m.whiteRank ? "  " + m.whiteRank : "");
+    $("mR").textContent = (m.resultText || "") + (m.result ? `（${m.result}）` : "") || "—";
+    $("mN").textContent = game.moves.length + " 手"
+      + (m.handsMismatch ? `（接口报 ${m.handsMismatch} 手）` : "");
+    $("mK").textContent = `${RULE_LABEL[m.rule] || m.rule || "—"} · 贴 ${m.komi} 目`
+      + (m.handicap ? ` · 让 ${m.handicap} 子` : "");
+    $("mE").textContent = [m.event, (m.date || "").slice(0, 10)].filter(Boolean).join(" · ") || "—";
+    $("mS").textContent = `${SRC_LABEL[m.source] || m.source} #${m.id}`;
+    $("sgf").value = game.sgf;
+    out.className = "show";
+    say("ok", "已取到棋谱，可以下载了。");
+  } catch (err) {
+    const tip = err instanceof NotFinishedError
+      ? ""
+      : err instanceof TypeError
+        ? "（可能是网络问题，或该站点临时不可用）"
+        : "";
+    say("err", (err.message || String(err)) + tip);
+  } finally {
+    $("go").disabled = false;
+  }
+});
+
+$("dl").addEventListener("click", () => {
+  if (!current) return;
+  const blob = new Blob([current.sgf], { type: "application/x-go-sgf;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = suggestFilename(current.meta);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+$("cp").addEventListener("click", async () => {
+  if (!current) return;
+  try {
+    await navigator.clipboard.writeText(current.sgf);
+    say("ok", "棋谱已复制到剪贴板。");
+  } catch {
+    $("sgf").select();
+    say("busy", "剪贴板不可用，已选中文本框，按 Ctrl/Cmd+C 复制。");
+  }
+});
+
+// 支持 ?url=... 直接带参打开
+const pre = new URLSearchParams(location.search).get("url");
+if (pre) { $("u").value = pre; $("f").requestSubmit(); }
+</script>
+</body>
+</html>

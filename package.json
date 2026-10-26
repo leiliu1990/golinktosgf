@@ -1,0 +1,16 @@
+{
+  "name": "golinktosgf",
+  "version": "1.0.0",
+  "description": "把围棋直播/对局链接转成 SGF 棋谱 —— 零依赖, 浏览器与 Node 共用一份实现",
+  "type": "module",
+  "main": "src/golinktosgf.js",
+  "exports": { ".": "./src/golinktosgf.js" },
+  "bin": { "golinktosgf": "bin/golinktosgf.mjs" },
+  "files": ["src", "bin", "docs", "index.html"],
+  "scripts": { "test": "node test/notfinished.mjs" },
+  "engines": { "node": ">=18" },
+  "keywords": ["go", "baduk", "weiqi", "sgf", "yikeweiqi", "kifu"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/leiliu1990/golinktosgf.git" },
+  "homepage": "https://leiliu1990.github.io/golinktosgf/"
+}
