@@ -45,6 +45,7 @@ async function yikeHeaders(extra) {
 /* ────────────────────────────────── 链接识别 ─────────────────────────────────── */
 
 const SOURCES = [
+  { source: "yikeweiqi", kind: "sgf", re: /yikeweiqi\.com\/.*#\/sgf\/detail\?[^#]*\bid=(\d+)/i },
   { source: "yikeweiqi", kind: "golive", re: /yikeweiqi\.com\/.*#\/golive\/room\/(\d+)/i },
   { source: "yikeweiqi", kind: "game", re: /yikeweiqi\.com\/.*#\/(?:new-online-game|online-game)\/(\d+)/i },
   { source: "xinbo", kind: "live", re: /xinboduiyi\.com\/.*[?&]gamekey=([^&#\s]+)/i },
@@ -55,7 +56,13 @@ export function detect(url) {
   const u = String(url || "").trim();
   for (const s of SOURCES) {
     const m = u.match(s.re);
-    if (m) return { source: s.source, kind: s.kind, id: decodeURIComponent(m[1]) };
+    if (!m) continue;
+    const hit = { source: s.source, kind: s.kind, id: decodeURIComponent(m[1]) };
+    if (s.kind === "sgf") {                       // 棋谱库还要带上 type
+      const t = u.match(/[?&]type=(\d+)/i);
+      hit.type = t ? t[1] : "0";
+    }
+    return hit;
   }
   // 裸 id: 纯数字当弈客对局, 其余当新博 gamekey
   if (/^\d{4,}$/.test(u)) return { source: "yikeweiqi", kind: "game", id: u };
@@ -103,6 +110,38 @@ export function toSgf(meta, moves, setup = []) {
   }
   const { head } = sgfRoot(props, extra);
   return `(;${head}\n${sgfMoves(moves)})\n`;
+}
+
+/**
+ * 往现成 SGF 的根节点补属性, 正文一字不改 ——
+ * 棋谱库/直播室给的是完整 SGF, 可能带 C[] 注解或分支,
+ * 解析成着手再重建会把这些丢掉, 所以这里走打补丁的路子。
+ * 已存在的属性默认保留 (override 里的键才覆盖)。
+ */
+export function patchSgfRoot(sgf, add = {}, override = {}) {
+  const text = String(sgf).trim();
+  const open = text.indexOf("(;");
+  if (open < 0) throw new Error("不是合法的 SGF (找不到 \"(;\")");
+  // 根节点到下一个 ";" 或 "(" 为止
+  let end = open + 2, depth = 0;
+  while (end < text.length) {
+    const c = text[end];
+    if (c === "[") { while (end < text.length && text[end] !== "]") { if (text[end] === "\\") end++; end++; } }
+    else if (c === ";" || c === "(" || c === ")") break;
+    end++;
+  }
+  let root = text.slice(open + 2, end);
+  const has = (k) => new RegExp(`\\b${k}\\[`).test(root);
+  for (const [k, v] of Object.entries(override)) {
+    if (v === "" || v == null) continue;
+    const re = new RegExp(`\\b${k}\\[[^\\]]*\\]`);
+    root = has(k) ? root.replace(re, `${k}[${esc(v)}]`) : root + `${k}[${esc(v)}]`;
+  }
+  for (const [k, v] of Object.entries(add)) {
+    if (v === "" || v == null || has(k)) continue;
+    root += `${k}[${esc(v)}]`;
+  }
+  return text.slice(0, open + 2) + root + text.slice(end);
 }
 
 /** SGF 文本 -> 着手数组 (用于已经拿到成品 SGF 的来源) */
@@ -237,10 +276,57 @@ async function fetchYikeGolive(id) {
     timeLimit: 0, gameName: `弈客直播 #${live.Id || id}`,
     url: `https://home.yikeweiqi.com/mobile.html#/golive/room/${live.Id || id}/0/0`,
   };
-  return { meta, moves: parseSgfMoves(sgf) };
+  // 原样透传 + 补根节点, 保住 Content 里可能带的注解
+  const patched = patchSgfRoot(sgf,
+    { GM: 1, FF: 4, CA: "UTF-8", AP: "golinktosgf", PB: meta.black, PW: meta.white,
+      DT: meta.date, EV: meta.event, GN: meta.gameName },
+    meta.result ? { RE: meta.result } : {});
+  return { meta, sgf: patched, moves: parseSgfMoves(sgf) };
 }
 
-/* ──────────────────────────── 来源 3: 新博对弈 ─────────────────────────────── */
+/* ─────────────────────────── 来源 3: 弈客棋谱库 ────────────────────────────── */
+
+async function fetchYikeSgfDetail(id, type = "0") {
+  const q = new URLSearchParams({ id, type });
+  const res = await fetch(`https://api.yikeweiqi.com/usersgf/detail?${q}`, {
+    headers: await yikeHeaders(),
+  }).then((r) => r.json());
+  const r = res?.Result;
+  if (res?.Status !== 1200 || !r) throw new Error("取棋谱失败: " + (res?.Status ?? "?"));
+  const raw = r.Sgf || "";
+  if (!raw) throw new Error(`棋谱 ${id} 没有内容`);
+
+  const rawResult = String(r.Result || "").trim();
+  const norm = zhResult(rawResult);
+  const meta = {
+    source: "yikeweiqi", kind: "sgf", id: String(r.Id || id),
+    black: r.BlackName || sgfProp(raw, "PB", "Black"),
+    white: r.WhiteName || sgfProp(raw, "PW", "White"),
+    blackRank: r.BlackGrade || "", whiteRank: r.WhiteGrade || "",
+    boardSize: Number(sgfProp(raw, "SZ", "19")) || 19,
+    komi: sgfProp(raw, "KM", ""),              // 棋谱库常常没有贴目, 不编造
+    rule: sgfProp(raw, "RU", ""),
+    handicap: Number(sgfProp(raw, "HA", "0")) || 0,
+    date: (r.GameDate || sgfProp(raw, "DT", "")).slice(0, 10),
+    event: (r.GameName || sgfProp(raw, "EV", "")).trim(),
+    result: norm, resultText: rawResult, endMode: "",
+    handsCount: Number(r.SgfHandsCount || 0), status: "ended",
+    timeLimit: 0, remark: r.Remark || "",
+    gameName: `弈客棋谱 #${r.Id || id}`,
+    url: `https://home.yikeweiqi.com/mobile.html#/sgf/detail?id=${r.Id || id}&type=${type}`,
+  };
+  // 原样透传, 只补缺失的根属性; RE 仅在原值非标准且能可靠归一时才覆盖
+  const standard = /^([BW]\+|0$)/.test(norm);
+  const origRE = sgfProp(raw, "RE", "");
+  const sgf = patchSgfRoot(raw,
+    { GM: 1, FF: 4, CA: "UTF-8", SZ: meta.boardSize, PB: meta.black, PW: meta.white,
+      BR: meta.blackRank, WR: meta.whiteRank, DT: meta.date, EV: meta.event,
+      GN: meta.gameName },
+    standard && origRE && !/^([BW]\+|0$)/.test(origRE) ? { RE: norm } : {});
+  return { meta, sgf, moves: parseSgfMoves(raw) };
+}
+
+/* ──────────────────────────── 来源 4: 新博对弈 ─────────────────────────────── */
 
 const XINBO_WS = "wss://live.xinboduiyi.com:40442/ws";
 
@@ -328,19 +414,22 @@ async function fetchXinbo(gameKey) {
 
 /** 链接 -> {sgf, meta, moves}; 任何一步失败都抛带中文说明的 Error */
 export async function fetchGame(url) {
-  const { source, kind, id } = detect(url);
-  const got = source === "xinbo" ? await fetchXinbo(id)
-            : kind === "golive" ? await fetchYikeGolive(id)
-            : await fetchYikeGame(id);
+  const t = detect(url);
+  const got = t.source === "xinbo" ? await fetchXinbo(t.id)
+            : t.kind === "sgf" ? await fetchYikeSgfDetail(t.id, t.type)
+            : t.kind === "golive" ? await fetchYikeGolive(t.id)
+            : await fetchYikeGame(t.id);
   const { meta, moves, setup = [] } = got;
   if (!moves.length) throw new Error("棋谱里没有着手");
   if (meta.handsCount && meta.handsCount !== moves.length) meta.handsMismatch = meta.handsCount;
-  return { sgf: toSgf(meta, moves, setup), meta, moves };
+  // 来源已给出完整 SGF 的直接用, 其余按 meta+moves 组装
+  return { sgf: got.sgf || toSgf(meta, moves, setup), meta, moves };
 }
 
 /** 建议的文件名, 如 "弈客围棋-80246918-黑方名-白方名.sgf" */
 export function suggestFilename(meta) {
-  const label = { yikeweiqi: meta.kind === "golive" ? "弈客直播" : "弈客围棋", xinbo: "新博对弈" }[meta.source] || meta.source;
+  const label = { yikeweiqi: { golive: "弈客直播", sgf: "弈客棋谱", game: "弈客围棋" }[meta.kind] || "弈客围棋",
+                  xinbo: "新博对弈" }[meta.source] || meta.source;
   const safe = (s) => String(s || "").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 24);
   return `${label}-${safe(meta.id)}-${safe(meta.black)}-${safe(meta.white)}.sgf`;
 }

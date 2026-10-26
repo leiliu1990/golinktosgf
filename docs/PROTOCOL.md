@@ -92,7 +92,31 @@ appSecret = "hfdSXRKm0DQyLmNXmNCNkZpjy2o5q1Hk"
 - 浏览器里 `Accept-Language` 是[禁止修改头](https://fetch.spec.whatwg.org/#forbidden-header-name)，
   JS 设了会被忽略，由浏览器填用户真实语言，所以浏览器端天然没这问题。
 
-## 3. 新博对弈
+## 3. 弈客围棋 · 棋谱库
+
+链接：`home.yikeweiqi.com/mobile.html#/sgf/detail?id=<id>&type=<type>`
+
+注意参数在 **hash 之后**（`#/sgf/detail?id=…`），标准 URL 解析器不会把它当 query，
+要用正则从 fragment 里取。`type` 原样回传即可（实测 `0`）。
+
+```
+GET https://api.yikeweiqi.com/usersgf/detail?id=<id>&type=<type>
+    + 签名头                                      -> {"Status":1200,"Result":{...}}
+```
+
+`Result` 字段：`Id` · `Sgf` · `SgfHandsCount` · `Remark` · `GameName` ·
+`BlackName` / `WhiteName` · `BlackGrade` / `WhiteGrade` · `GameDate` · `Result` ·
+`BlackHeadImgUrl` / `WhiteHeadImgUrl`。
+
+- `Sgf` 是**完整 SGF**，根节点已有 `PB`/`PW`/`EV`/`DT`/`RE`/`SZ`/`AP`。
+- **常常没有 `KM` 和 `RU`**（贴目与规则）。不要编造，缺就缺。
+- `Result` 是上传者手填的自由文本，可能根本不符合 SGF 的 `RE` 规范 ——
+  实测样本是 `黑191`（既不是目数也不是手数，含义不明）。归一化后只能确定胜方（`B+`）。
+- `SgfHandsCount` 不可信：实测一局它报 174，实际 173 手。
+- 这是**棋谱库**，讲解谱会带 `C[]` 注解、`LB`/`TR` 标记和分支变化图。
+  取谱时必须**原样透传**，只往根节点补缺失属性；解析成着手列表再重建会丢掉全部注解和分支。
+
+## 4. 新博对弈
 
 链接：`weiqi.xinboduiyi.com/golive/index.html?gamekey=<key>&gametype=eye`
 
@@ -154,6 +178,7 @@ String.fromCharCode(code >= 73 ? code + 31 : code + 32)   // 'I'(73) 是分界
 | `api-new.yikeweiqi.com/v1/user/tpop/authorizations/anonymous` | 200 | 回显请求 Origin | `Allow-Headers` 只列了 `APPKEY,CHECKSUM,NONCE,CURTIME,ACCESSTOKEN,CONTENT-TYPE` —— 发别的自定义头会被浏览器拦掉，所以只发必需的那四个 |
 | `game-server.yikeweiqi.com/game/info` | 204 | `*` | `Allow-Headers` 含 `Authorization` |
 | `api.yikeweiqi.com/v2/golive/dtl` | 204 | `*` | `Allow-Headers` 含 `*` |
+| `api.yikeweiqi.com/usersgf/detail` | 204 | `*` | 同上, 同一网关 |
 | `wss://live.xinboduiyi.com:40442/ws` | — | — | **WebSocket 不受 CORS 约束**；证书是 DigiCert 签的，`wss://` 在 HTTPS 页面下无混合内容问题 |
 
 所以一个 GitHub Pages 上的静态页面就能完成全部取谱，无需任何后端。

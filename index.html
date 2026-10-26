@@ -110,6 +110,7 @@ footer a { color: var(--accent); }
       <li>弈客围棋 · 在线对弈<br><code>home.yikeweiqi.com/mobile.html#/new-online-game/&lt;id&gt;</code></li>
       <li>弈客围棋 · 在线对弈（旧版路由）<br><code>home.yikeweiqi.com/mobile.html#/online-game/&lt;id&gt;</code></li>
       <li>弈客围棋 · 直播室<br><code>home.yikeweiqi.com/mobile.html#/golive/room/&lt;id&gt;/0/0</code></li>
+      <li>弈客围棋 · 棋谱库<br><code>home.yikeweiqi.com/mobile.html#/sgf/detail?id=&lt;id&gt;&amp;type=0</code></li>
       <li>新博对弈<br><code>weiqi.xinboduiyi.com/golive/index.html?gamekey=&lt;key&gt;</code></li>
     </ul>
   </div>
@@ -151,8 +152,10 @@ $("f").addEventListener("submit", async (e) => {
     $("mR").textContent = (m.resultText || "") + (m.result ? `（${m.result}）` : "") || "—";
     $("mN").textContent = game.moves.length + " 手"
       + (m.handsMismatch ? `（接口报 ${m.handsMismatch} 手）` : "");
-    $("mK").textContent = `${RULE_LABEL[m.rule] || m.rule || "—"} · 贴 ${m.komi} 目`
-      + (m.handicap ? ` · 让 ${m.handicap} 子` : "");
+    const ru = RULE_LABEL[m.rule] || m.rule || "";
+    const km = m.komi === "" || m.komi == null ? "" : `贴 ${m.komi} 目`;
+    $("mK").textContent = [ru, km, m.handicap ? `让 ${m.handicap} 子` : ""]
+      .filter(Boolean).join(" · ") || "—";
     $("mE").textContent = [m.event, (m.date || "").slice(0, 10)].filter(Boolean).join(" · ") || "—";
     $("mS").textContent = `${SRC_LABEL[m.source] || m.source} #${m.id}`;
     $("sgf").value = game.sgf;

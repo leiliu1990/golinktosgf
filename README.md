@@ -17,6 +17,7 @@ node bin/golinktosgf.mjs "https://home.yikeweiqi.com/mobile.html#/new-online-gam
 | --- | --- | --- |
 | 弈客围棋 · 在线对弈 | `home.yikeweiqi.com/mobile.html#/new-online-game/<id>`<br>`…#/online-game/<id>`（旧版路由） | HTTP + 匿名 JWT |
 | 弈客围棋 · 直播室 | `home.yikeweiqi.com/mobile.html#/golive/room/<id>/0/0` | HTTP + 签名头 |
+| 弈客围棋 · 棋谱库 | `home.yikeweiqi.com/mobile.html#/sgf/detail?id=<id>&type=<type>` | HTTP + 签名头 |
 | 新博对弈 | `weiqi.xinboduiyi.com/golive/index.html?gamekey=<key>` | WebSocket (JSON) |
 
 也可以只填对局号（纯数字按弈客对局处理，其余按新博 gamekey）。
@@ -51,8 +52,12 @@ const a = Object.assign(document.createElement("a"), {
 a.click();
 ```
 
-导出的接口：`fetchGame` · `detect` · `toSgf` · `parseStepStr` · `zhResult` ·
-`suggestFilename` · `NotFinishedError` · `SUPPORTED`。
+导出的接口：`fetchGame` · `detect` · `toSgf` · `patchSgfRoot` · `parseStepStr` ·
+`zhResult` · `suggestFilename` · `NotFinishedError` · `SUPPORTED`。
+
+棋谱库与直播室给的是**完整 SGF**，这两种来源走**原样透传 + 只补根节点**
+（`patchSgfRoot`），因为讲解谱里可能有 `C[]` 注解、`LB`/`TR` 标记和分支变化图——
+解析成着手再重建会把这些全丢掉。正文保证一字不改。
 
 ## 为什么网页版不需要后端
 
