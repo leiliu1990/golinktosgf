@@ -12,7 +12,7 @@
  */
 
 /** 构建版本 —— 页面会显示它, 用来确认浏览器加载的不是缓存里的旧版 */
-export const VERSION = "1.2.1";
+export const VERSION = "1.3.0";
 
 /* ────────────────────────── 签名 (弈客两个 HTTP 接口共用) ───────────────────────── */
 
@@ -249,12 +249,14 @@ async function fetchYikeGame(id) {
     source: "yikeweiqi", kind: "game", id: String(d.id),
     black: b.name || "Black", white: w.name || "White",
     blackRank: b.grade || "", whiteRank: w.grade || "",
+    blackRating: b.rating ?? null, whiteRating: w.rating ?? null,
     boardSize: d.board_size || 19, komi: d.komi, rule: d.rule, handicap: d.handicap || 0,
     date: d.began_at || d.created_at || "", event: d.game_name || "",
     result: yikeResult(d.result, d.end_mode),
     resultText: d.result_desc || "", endMode: d.end_mode || "",
     handsCount: d.hands_count, status: "ended",
     timeLimit: d.setting?.main_time || 0,
+    periods: d.setting?.periods ?? null, periodTime: d.setting?.period_time ?? null,
     gameName: `弈客围棋 #${d.id}`,
     url: `https://home.yikeweiqi.com/mobile.html#/new-online-game/${d.id}`,
   };
@@ -280,6 +282,7 @@ async function fetchYikeGolive(id) {
     source: "yikeweiqi", kind: "golive", id: String(live.Id || id),
     black: live.BlackPlayer || "Black", white: live.WhitePlayer || "White",
     blackRank: "", whiteRank: "",
+    blackCountry: live.BCounty || "", whiteCountry: live.WCounty || "",
     boardSize: Number(sgfProp(sgf, "SZ", "19")) || 19,
     komi: Number(sgfProp(sgf, "KM", "6.5")) || 6.5,
     rule: sgfProp(sgf, "RU", "jp"),
@@ -411,6 +414,7 @@ async function fetchXinbo(gameKey) {
     source: "xinbo", kind: "live", id: g.GameKey || gameKey,
     black: g.BlackAliasName || "Black", white: g.WhiteAliasName || "White",
     blackRank: "", whiteRank: "",
+    blackCountry: g.BlackSchoolName || "", whiteCountry: g.WhiteSchoolName || "",
     boardSize: Number(g.BoardSize || 19) || 19,
     komi: g.komi_value == null || g.komi_value === "" ? 7.5 : Number(g.komi_value),
     rule: Number(g.resultType || 2) === 2 ? "cn" : "jp",

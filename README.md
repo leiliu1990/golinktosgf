@@ -35,6 +35,7 @@ golinktosgf <链接或id> [选项]
   -o <文件>    写入指定文件 (默认按对局信息自动命名)
   --stdout     SGF 打到标准输出, 不写文件
   --json       输出对局元信息 JSON, 不写 SGF
+  --json-full  一次输出 {meta, sgf, moves} JSON (供其他程序调用, 只抓一次网络)
   -h, --help   显示帮助
 ```
 
@@ -74,7 +75,7 @@ GitHub Pages 对静态文件发 `Cache-Control: max-age=600`，浏览器会在 1
 复用旧的 JS。`index.html` 里的模块导入带了版本 query：
 
 ```js
-import { … } from "./src/golinktosgf.js?v=1.2.1";
+import { … } from "./src/golinktosgf.js?v=1.3.0";
 ```
 
 **改了 `src/golinktosgf.js` 就要同时改这里的 `?v=` 和 `src` 里的 `VERSION`**，
