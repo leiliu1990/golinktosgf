@@ -11,6 +11,9 @@
  * 支持的来源见 docs/PROTOCOL.md。
  */
 
+/** 构建版本 —— 页面会显示它, 用来确认浏览器加载的不是缓存里的旧版 */
+export const VERSION = "1.1.0";
+
 /* ────────────────────────── 签名 (弈客两个 HTTP 接口共用) ───────────────────────── */
 
 const YIKE_APPKEY = "3396jtzhK57XhJom";
@@ -67,7 +70,11 @@ export function detect(url) {
   // 裸 id: 纯数字当弈客对局, 其余当新博 gamekey
   if (/^\d{4,}$/.test(u)) return { source: "yikeweiqi", kind: "game", id: u };
   if (/^[A-Za-z][A-Za-z0-9_-]{7,}$/.test(u)) return { source: "xinbo", kind: "live", id: u };
-  throw new Error("无法识别的链接。支持弈客围棋 (在线对弈 / 直播室) 与新博对弈。");
+  throw new Error(
+    `无法识别的链接: ${u.slice(0, 80)}${u.length > 80 ? "…" : ""}\n` +
+    "支持: 弈客围棋的在线对弈 (#/new-online-game/ 或 #/online-game/)、" +
+    "直播室 (#/golive/room/)、棋谱库 (#/sgf/detail?id=)，以及新博对弈 (?gamekey=)。"
+  );
 }
 
 /* ───────────────────────────────── SGF 组装 ──────────────────────────────────── */
@@ -434,4 +441,12 @@ export function suggestFilename(meta) {
   return `${label}-${safe(meta.id)}-${safe(meta.black)}-${safe(meta.white)}.sgf`;
 }
 
-export const SUPPORTED = SOURCES.map(({ source, kind }) => ({ source, kind }));
+export const SOURCE_LABEL = {
+  "yikeweiqi:game": "弈客围棋 · 在线对弈",
+  "yikeweiqi:golive": "弈客围棋 · 直播室",
+  "yikeweiqi:sgf": "弈客围棋 · 棋谱库",
+  "xinbo:live": "新博对弈",
+};
+export const SUPPORTED = SOURCES.map(({ source, kind }) => ({
+  source, kind, label: SOURCE_LABEL[`${source}:${kind}`] || `${source}:${kind}`,
+}));

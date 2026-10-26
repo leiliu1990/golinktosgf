@@ -65,6 +65,18 @@ a.click();
 新博那条走 WebSocket——**WebSocket 不受 CORS 约束**。所以浏览器可以直连，
 不需要代理服务器。
 
+## 改动 src 后记得同步版本号
+
+GitHub Pages 对静态文件发 `Cache-Control: max-age=600`，浏览器会在 10 分钟内
+复用旧的 JS。`index.html` 里的模块导入带了版本 query：
+
+```js
+import { … } from "./src/golinktosgf.js?v=1.1.0";
+```
+
+**改了 `src/golinktosgf.js` 就要同时改这里的 `?v=` 和 `src` 里的 `VERSION`**，
+否则用户拿到的还是缓存里的旧版。页面右下角会显示当前加载的版本号，便于核对。
+
 ## 测试
 
 ```bash

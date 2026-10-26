@@ -44,7 +44,7 @@ button.ghost { background: transparent; color: var(--accent); border: 1px solid 
 .hint code { font: 12px var(--mono); background: var(--bg); padding: 1px 5px; border-radius: 4px; }
 .msg { margin-top: 16px; border-radius: 8px; padding: 12px 14px; font-size: 14px; display: none; }
 .msg.show { display: block; }
-.msg.err { background: var(--err-bg); color: var(--err); }
+.msg.err { background: var(--err-bg); color: var(--err); white-space: pre-line; }
 .msg.ok { background: var(--ok-bg); color: var(--ok); }
 .msg.busy { background: var(--bg); color: var(--ink-2); border: 1px solid var(--line); }
 dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin: 14px 0 0; font-size: 14px; }
@@ -117,11 +117,14 @@ footer a { color: var(--accent); }
 
   <footer>
     命令行版与协议文档见 <a href="https://github.com/leiliu1990/golinktosgf">GitHub 仓库</a>。
+    <span id="ver"></span>
   </footer>
 </div>
 
 <script type="module">
-import { fetchGame, suggestFilename, NotFinishedError } from "./src/golinktosgf.js";
+// ?v= 用来破 GitHub Pages 的 max-age=600 缓存 —— 每次改 src 都要跟着改这里
+import { fetchGame, suggestFilename, NotFinishedError, VERSION, SOURCE_LABEL }
+  from "./src/golinktosgf.js?v=1.1.0";
 
 const $ = (id) => document.getElementById(id);
 const msg = $("msg"), out = $("out");
@@ -133,7 +136,8 @@ function say(kind, text) {
 }
 function clear() { msg.className = "msg"; out.className = ""; }
 
-const SRC_LABEL = { yikeweiqi: "弈客围棋", xinbo: "新博对弈" };
+$("ver").textContent = " · v" + VERSION;
+const srcName = (m) => SOURCE_LABEL[`${m.source}:${m.kind}`] || m.source;
 const RULE_LABEL = { cn: "中国规则", jp: "日本规则", kr: "韩国规则", Chinese: "中国规则", Japanese: "日本规则" };
 
 $("f").addEventListener("submit", async (e) => {
@@ -157,7 +161,7 @@ $("f").addEventListener("submit", async (e) => {
     $("mK").textContent = [ru, km, m.handicap ? `让 ${m.handicap} 子` : ""]
       .filter(Boolean).join(" · ") || "—";
     $("mE").textContent = [m.event, (m.date || "").slice(0, 10)].filter(Boolean).join(" · ") || "—";
-    $("mS").textContent = `${SRC_LABEL[m.source] || m.source} #${m.id}`;
+    $("mS").textContent = `${srcName(m)} #${m.id}`;
     $("sgf").value = game.sgf;
     out.className = "show";
     say("ok", "已取到棋谱，可以下载了。");
