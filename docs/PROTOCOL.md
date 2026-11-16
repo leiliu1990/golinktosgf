@@ -16,7 +16,10 @@
 
 ## 1. 弈客围棋 · 在线对弈
 
-链接：`home.yikeweiqi.com/mobile.html#/new-online-game/<id>`（旧版路由 `#/online-game/<id>` 同一后端）
+链接：`home.yikeweiqi.com/mobile.html#/new-online-game/<id>`
+
+同一后端的另外两条前端路由：`#/online-game/<id>`（旧版）与 `#/history-game/<id>`
+（历史对局，实测 #82775650 直接走 `game/info` 可用）。
 
 两跳：
 
@@ -248,5 +251,6 @@ String.fromCharCode(code >= 73 ? code + 31 : code + 32)   // 'I'(73) 是分界
 - **未终局的对局**：本工具明确拒绝。弈客在线对弈的实时推送走
   `wss://game-server.yikeweiqi.com/connection/websocket`（Centrifugo v2，频道 `game:<id>`，
   payload 按 `protocol` 字段分发，每条都带完整 `sgf`）；直播室只要轮询 `dtl` 比 `HandsCount` 即可。
-- 弈客的 `#/fir-game/<id>`（五子棋）—— 接口同形，但记录不是围棋 SGF。
+- 弈客的 `#/fir-game/<id>` 与 `#/sgf/ai-fir-game/<id>`（五子棋）—— 接口同形，但记录不是
+  围棋 SGF。`detect()` 会明确报错拒绝，而不是让它走进围棋那条路。
 - 私密对局、`reportkey` 流程（弈客 `cmd 17`）、让子局的 `ab_aw` 格式。
