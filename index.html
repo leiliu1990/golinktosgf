@@ -110,6 +110,7 @@ footer a { color: var(--accent); }
     <ul>
       <li>弈客围棋 · 在线对弈<br><code>home.yikeweiqi.com/mobile.html#/new-online-game/&lt;id&gt;</code></li>
       <li>弈客围棋 · 在线对弈（旧版路由）<br><code>home.yikeweiqi.com/mobile.html#/online-game/&lt;id&gt;</code></li>
+      <li>弈客围棋 · 历史对局<br><code>home.yikeweiqi.com/mobile.html#/history-game/&lt;id&gt;</code></li>
       <li>弈客围棋 · 直播室<br><code>home.yikeweiqi.com/mobile.html#/golive/room/&lt;id&gt;/0/0</code></li>
       <li>弈客围棋 · 棋谱库<br><code>home.yikeweiqi.com/mobile.html#/sgf/detail?id=&lt;id&gt;&amp;type=0</code></li>
       <li>星阵围棋<br><code>m.19x19.com/app/dark/zh/sgf/&lt;id&gt;</code></li>
@@ -126,7 +127,7 @@ footer a { color: var(--accent); }
 <script type="module">
 // ?v= 用来破 GitHub Pages 的 max-age=600 缓存 —— 每次改 src 都要跟着改这里
 import { fetchGame, suggestFilename, NotFinishedError, VERSION, SOURCE_LABEL }
-  from "./src/golinktosgf.js?v=1.3.0";
+  from "./src/golinktosgf.js?v=1.5.0";
 
 const $ = (id) => document.getElementById(id);
 const msg = $("msg"), out = $("out");

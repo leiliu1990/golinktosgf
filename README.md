@@ -15,7 +15,7 @@ node bin/golinktosgf.mjs "https://home.yikeweiqi.com/mobile.html#/new-online-gam
 
 | 来源 | 链接式样 | 传输 |
 | --- | --- | --- |
-| 弈客围棋 · 在线对弈 | `home.yikeweiqi.com/mobile.html#/new-online-game/<id>`<br>`…#/online-game/<id>`（旧版路由） | HTTP + 匿名 JWT |
+| 弈客围棋 · 在线对弈 | `…#/new-online-game/<id>`<br>`…#/online-game/<id>`（旧版路由）<br>`…#/history-game/<id>`（历史对局） | HTTP + 匿名 JWT |
 | 弈客围棋 · 直播室 | `home.yikeweiqi.com/mobile.html#/golive/room/<id>/0/0` | HTTP + 签名头 |
 | 弈客围棋 · 棋谱库 | `home.yikeweiqi.com/mobile.html#/sgf/detail?id=<id>&type=<type>` | HTTP + 签名头 |
 | 星阵围棋 | `m.19x19.com/app/dark/zh/sgf/<id>` | HTTP POST |
@@ -75,7 +75,7 @@ GitHub Pages 对静态文件发 `Cache-Control: max-age=600`，浏览器会在 1
 复用旧的 JS。`index.html` 里的模块导入带了版本 query：
 
 ```js
-import { … } from "./src/golinktosgf.js?v=1.3.0";
+import { … } from "./src/golinktosgf.js?v=1.5.0";
 ```
 
 **改了 `src/golinktosgf.js` 就要同时改这里的 `?v=` 和 `src` 里的 `VERSION`**，

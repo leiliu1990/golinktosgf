@@ -12,7 +12,7 @@
  */
 
 /** 构建版本 —— 页面会显示它, 用来确认浏览器加载的不是缓存里的旧版 */
-export const VERSION = "1.3.0";
+export const VERSION = "1.5.0";
 
 /* ────────────────────────── 签名 (弈客两个 HTTP 接口共用) ───────────────────────── */
 
@@ -50,7 +50,8 @@ async function yikeHeaders(extra) {
 const SOURCES = [
   { source: "yikeweiqi", kind: "sgf", re: /yikeweiqi\.com\/.*#\/sgf\/detail\?[^#]*\bid=(\d+)/i },
   { source: "yikeweiqi", kind: "golive", re: /yikeweiqi\.com\/.*#\/golive\/room\/(\d+)/i },
-  { source: "yikeweiqi", kind: "game", re: /yikeweiqi\.com\/.*#\/(?:new-online-game|online-game)\/(\d+)/i },
+  { source: "yikeweiqi", kind: "game",
+    re: /yikeweiqi\.com\/.*#\/(?:new-online-game|online-game|history-game)\/(\d+)/i },
   { source: "xinbo", kind: "live", re: /xinboduiyi\.com\/.*[?&]gamekey=([^&#\s]+)/i },
   { source: "golaxy", kind: "sgf", re: /19x19\.com\/.*\/sgf\/(\d+)/i },
 ];
@@ -58,6 +59,10 @@ const SOURCES = [
 /** 识别链接 -> {source, kind, id}; 认不出抛错 */
 export function detect(url) {
   const u = String(url || "").trim();
+  // 五子棋: 接口与围棋同形, 但记录不是围棋 SGF —— 明确拒绝, 别让它走进围棋那条路
+  if (/yikeweiqi\.com\/.*#\/(?:sgf\/ai-)?fir-game\//i.test(u)) {
+    throw new Error("这是五子棋对局 (fir-game), 不是围棋, 无法导出围棋 SGF。");
+  }
   for (const s of SOURCES) {
     const m = u.match(s.re);
     if (!m) continue;
@@ -79,7 +84,7 @@ export function detect(url) {
   }
   throw new Error(
     `无法识别的链接: ${u.slice(0, 80)}${u.length > 80 ? "…" : ""}\n` +
-    "支持: 弈客围棋的在线对弈 (#/new-online-game/ 或 #/online-game/)、" +
+    "支持: 弈客围棋的在线对弈 (#/new-online-game/ 、#/online-game/ 或 #/history-game/)、" +
     "直播室 (#/golive/room/)、棋谱库 (#/sgf/detail?id=)；" +
     "星阵围棋 (m.19x19.com/…/sgf/<id>)；新博对弈 (?gamekey=)。"
   );
@@ -260,7 +265,24 @@ async function fetchYikeGame(id) {
     gameName: `弈客围棋 #${d.id}`,
     url: `https://home.yikeweiqi.com/mobile.html#/new-online-game/${d.id}`,
   };
-  return { meta, moves: parseSgfMoves(d.sgf || "") };
+
+  // 原样透传 + 只补根节点。
+  // 不能"解析着手再重建": data.sgf 的根节点带着 AB[..][..] (让子棋的摆子点),
+  // 而 parseSgfMoves 只抓 ;B[]/;W[], 重建时让子会整体消失 —— 实测
+  // #82240492 是让 5 子, 重建后 5 颗黑子凭空不见, 分析自然全错。
+  let raw = d.sgf || "";
+  // 兜底: 万一 sgf 里没写摆子, 用同级的 ab_aw 字段 (实测形如 "AB[pd][dp]…")
+  const abaw = String(d.ab_aw || "").trim();
+  if (abaw && !/\bA[BW]\[/.test(raw)) {
+    raw = raw.replace(/^\(\s*;/, "(;" + abaw);
+  }
+  const sgf = patchSgfRoot(raw,
+    { GM: 1, FF: 4, CA: "UTF-8", AP: "golinktosgf", SZ: meta.boardSize,
+      PB: meta.black, BR: meta.blackRank, PW: meta.white, WR: meta.whiteRank,
+      DT: (meta.date || "").slice(0, 10), EV: meta.event, GN: meta.gameName,
+      TM: meta.timeLimit || "" },
+    meta.result ? { RE: meta.result } : {});
+  return { meta, sgf, moves: parseSgfMoves(raw) };
 }
 
 /* ──────────────────────────── 来源 2: 弈客直播室 ───────────────────────────── */
